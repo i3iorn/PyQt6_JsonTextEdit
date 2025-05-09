@@ -55,12 +55,12 @@ class QJsonTextEdit(QTextEdit):
         return self._indentation
 
     def _check_format(self):
-        if self.isValid != self._previous_state:
+        if self.isValid() != self._previous_state:
             self.jsonValidityChanged.emit(lambda: self.isValid())
-            self._previous_state = self.isValid
+            self._previous_state = self.isValid()
 
     def minifyJson(self):
-        if self.isValid:
+        if self.isValid():
             self.setText(self.minifiedJson())
 
     def minifiedJson(self):

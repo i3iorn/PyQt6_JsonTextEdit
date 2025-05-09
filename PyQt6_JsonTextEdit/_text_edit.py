@@ -26,7 +26,7 @@ class QJsonTextEdit(QTextEdit):
         self._init_formatter()
         self._init_highlighter()
         self._connect_signals()
-        self.jsonValidityChanged.emit(lambda: self.isValid())
+        self.jsonValidityChanged.emit(self.isValid)
 
     def _init_formatter(self):
         pass
@@ -56,7 +56,7 @@ class QJsonTextEdit(QTextEdit):
 
     def _check_format(self):
         if self.isValid() != self._previous_state:
-            self.jsonValidityChanged.emit(lambda: self.isValid())
+            self.jsonValidityChanged.emit(self.isValid)
             self._previous_state = self.isValid()
 
     def minifyJson(self):

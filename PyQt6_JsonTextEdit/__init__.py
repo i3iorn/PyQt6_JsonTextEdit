@@ -12,4 +12,7 @@ __all__ = [
     "QAbstractJsonFormatter",
     "QJsonHighlighter",
     "QJsonModel",
+    "QJsonTreeView",
+    "QJsonTableView",
+    "QJsonListView"
 ]

@@ -59,7 +59,7 @@ class TreeItem:
         self._value_type = value
 
     @classmethod
-    def load(
+    def parse(
         cls, value: list | dict, parent: "TreeItem" = None, sort=True
     ) -> "TreeItem":
         """Create a 'root' TreeItem from a nested list or a nested dictonary
@@ -81,14 +81,14 @@ class TreeItem:
             items = sorted(value.items()) if sort else value.items()
 
             for key, value in items:
-                child = cls.load(value, rootItem)
+                child = cls.parse(value, rootItem)
                 child.key = key
                 child.value_type = type(value)
                 rootItem.appendChild(child)
 
         elif isinstance(value, list):
             for index, value in enumerate(value):
-                child = cls.load(value, rootItem)
+                child = cls.parse(value, rootItem)
                 child.key = index
                 child.value_type = type(value)
                 rootItem.appendChild(child)

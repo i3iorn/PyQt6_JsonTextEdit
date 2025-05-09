@@ -1,12 +1,10 @@
 from typing import Any
 
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QObject, Qt
-
-from PyQt6_JsonTextEdit._model import TreeItem
 from PyQt6_JsonTextEdit._model.tree_item import TreeItem
 
 
-class JsonModel(QAbstractItemModel):
+class QJsonModel(QAbstractItemModel):
     """ An editable model of Json data """
 
     def __init__(self, parent: QObject = None):
@@ -162,7 +160,7 @@ class JsonModel(QAbstractItemModel):
 
         Return flags of index
         """
-        flags = super(JsonModel, self).flags(index)
+        flags = super(QJsonModel, self).flags(index)
 
         if index.column() == 1:
             return Qt.ItemFlag.ItemIsEditable | flags

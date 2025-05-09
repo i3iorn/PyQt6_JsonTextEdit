@@ -26,7 +26,7 @@ class QJsonTextEdit(QTextEdit):
         self._init_formatter()
         self._init_highlighter()
         self._connect_signals()
-        self.jsonValidityChanged.emit(self.isValid)
+        self.jsonValidityChanged.emit(lambda: self.isValid())
 
     def _init_formatter(self):
         pass

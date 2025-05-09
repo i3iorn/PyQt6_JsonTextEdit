@@ -2,9 +2,8 @@
 
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton
-from PyQt6.QtCore import Qt
 
-from PyQt6_JsonTextEdit import QJsonTextEdit
+from PyQt6_JsonTextEdit._text_edit import QJsonTextEdit
 
 
 class MainWindow(QMainWindow):
@@ -14,6 +13,7 @@ class MainWindow(QMainWindow):
         self.resize(600, 400)
 
         self.text_edit = QJsonTextEdit()
+        self.text_edit.highlighter()
 
         # Set default JSON
         self.text_edit.setJson({
@@ -29,6 +29,13 @@ class MainWindow(QMainWindow):
 
         minify_button = QPushButton("Minify")
         minify_button.clicked.connect(self.text_edit.minifyJson)
+
+        self.text_edit.jsonFormattingErrorOccurred.connect(
+            lambda error: print(f"Formatting error: {error}")
+        )
+        self.text_edit.jsonValidityChanged.connect(
+            lambda is_valid: print(f"JSON validity changed: {is_valid}")
+        )
 
         layout = QVBoxLayout()
         layout.addWidget(self.text_edit)

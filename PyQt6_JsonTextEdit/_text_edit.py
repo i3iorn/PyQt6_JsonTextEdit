@@ -45,6 +45,7 @@ class QJsonTextEdit(QTextEdit):
     def formatter(self):
         return self._formatter
 
+    @property
     def isValid(self):
         return self._formatter.isValid(self.plainTextJson())
 

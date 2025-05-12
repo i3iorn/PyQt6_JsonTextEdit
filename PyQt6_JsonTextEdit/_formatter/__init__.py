@@ -6,6 +6,7 @@ from typing import Optional, Any
 from PyQt6_JsonTextEdit._formatter.abstract import BaseTypes, QAbstractJsonFormatter
 
 _DEFAULT_INDENT = 2
+_DEFAULT_EMPTY_POLICY = True
 
 
 class JsonFormatterException(Exception):
@@ -70,15 +71,19 @@ class QJsonFormatter(QAbstractJsonFormatter):
     def __init__(self, parent=None):
         super(QJsonFormatter, self).__init__(parent)
         self._indentation = _DEFAULT_INDENT
+        self._empty_policy = _DEFAULT_EMPTY_POLICY
 
     @property
     def indentation(self):
         return self._indentation
 
     def isValid(self, value: str) -> bool:
-        if not isinstance(value, str):
-            value = json.dumps(value)
+        if value is None or value == "":
+            return self._empty_policy
+
         try:
+            if not isinstance(value, str):
+                value = json.dumps(value)
             json.loads(value)
             return True
         except ValueError:
@@ -101,6 +106,14 @@ class QJsonFormatter(QAbstractJsonFormatter):
 
     def jsonEncoderClass(self):
         return JSONEncoder
+
+    def emptyPolicy(self) -> bool:
+        return self._empty_policy
+
+    def setEmptyPolicy(self, empty_policy: bool) -> None:
+        if not isinstance(empty_policy, bool):
+            raise JsonFormatterException("empty_policy must be a boolean")
+        self._empty_policy = empty_policy
 
     def setIndentation(self, indentation: int) -> None:
         if not isinstance(indentation, int):

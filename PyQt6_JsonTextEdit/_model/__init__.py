@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QObject, Qt
 from PyQt6_JsonTextEdit._model.tree_item import TreeItem

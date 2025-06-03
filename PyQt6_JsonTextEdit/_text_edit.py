@@ -103,7 +103,7 @@ class QJsonTextEdit(QTextEdit):
             raise TypeError("Only dict or list are valid JSON roots")
 
         try:
-            string = self.formatter.format(json_object)
+            string = self.formatter().format(json_object)
             self.setText(string)
         except JsonFormattingException as e:
             self.jsonFormattingErrorOccurred.emit(str(e))

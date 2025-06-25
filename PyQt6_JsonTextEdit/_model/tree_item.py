@@ -1,3 +1,6 @@
+from typing import List
+
+
 class TreeItem:
     """A Json item corresponding to a line in QTreeView"""
 
@@ -11,6 +14,17 @@ class TreeItem:
     def appendChild(self, item: "TreeItem"):
         """Add item as a child"""
         self._children.append(item)
+
+    def appendRow(self, row: List[str, str]) -> None:
+        """Append a row to the current item"""
+        if len(row) == 2:
+            key, value = row
+            child = TreeItem(self)
+            child.key = key
+            child.value = value
+            self.appendChild(child)
+        else:
+            raise ValueError("Row must contain exactly two elements: [key, value]")
 
     def child(self, row: int) -> "TreeItem":
         """Return the child of the current item from the given row"""

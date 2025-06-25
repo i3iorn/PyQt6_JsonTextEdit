@@ -9,11 +9,13 @@ from PyQt6_JsonTextEdit._constants import *
 from PyQt6_JsonTextEdit._formatter import QJsonFormatter, JsonFormattingException, QAbstractJsonFormatter
 from PyQt6_JsonTextEdit._highlighter import QJsonHighlighter
 
+PAIRS = {ord('{'): '}', ord('['): ']', ord('('): ')', ord('"'): '"'}
 
 class QJsonTextEdit(QTextEdit):
     jsonValidityChanged = pyqtSignal(bool)
     jsonFormattingErrorOccurred = pyqtSignal(str)
     jsonChanged = pyqtSignal(str)
+
 
     def __init__(self, parent=None, formatter: "QAbstractJsonFormatter" = None, highlighter: QSyntaxHighlighter = None ):
         super().__init__(parent)
@@ -148,12 +150,12 @@ class QJsonTextEdit(QTextEdit):
 
     def _maybe_insert_pair(self, event: QKeyEvent) -> bool:
         key = event.key()
-        pairs = {ord('{'): '}', ord('['): ']', ord('('): ')', ord('"'): '"'}
-        if key not in pairs:
+
+        if key not in PAIRS:
             return False
 
         cursor = self.textCursor()
-        opening, closing = chr(key), pairs[key]
+        opening, closing = chr(key), PAIRS[key]
         selection = cursor.selectedText()
 
         # Handle special case: opening brace inserts a block with newline
@@ -182,9 +184,21 @@ class QJsonTextEdit(QTextEdit):
         return True
 
     def _handle_newline_indent(self):
+        # If the cursor is at the end of the line and the last non-blank character
+        # is a quote, insert a comma.
         cursor = self.textCursor()
-        indent = self._current_line_indent()
-        cursor.insertText('\n' + ' ' * indent)
+        cursor.movePosition(QTextCursor.MoveOperation.EndOfLine, QTextCursor.MoveMode.KeepAnchor)
+        line_text = cursor.selectedText().rstrip()
+        if line_text and line_text[-1] == '"':
+            cursor.insertText(',')
+
+        # If the last character is open brace, bracket, parenthesis, or comma, insert
+        # a newline with indentation.
+        if line_text and line_text[-1] in '{[(,':
+            cursor.insertText('\n' + ' ' * self._current_line_indent())
+        else:
+            # Otherwise, just insert a newline
+            cursor.insertText('\n')
 
     def _handle_tab(self):
         self.textCursor().insertText(' ' * self.indentation())

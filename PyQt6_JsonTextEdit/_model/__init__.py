@@ -105,4 +105,18 @@ class QJsonModel(QAbstractItemModel):
         """ Set the horizontal header labels """
         self._headers = labels
         self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, len(labels) - 1)
+
+    def setStringList(self, string_list: list[str]):
+        """ Set the model data from a list of strings """
+        self.beginResetModel()
+        # Clear the current root item by reinitializing it
+        self._rootItem = TreeItem()
+
+        # Populate the root item with the string list
+        for string in string_list:
+            item = TreeItem(parent=self._rootItem)
+            item.value = string
+            self._rootItem.appendChild(item)
+
+        self.endResetModel()
         

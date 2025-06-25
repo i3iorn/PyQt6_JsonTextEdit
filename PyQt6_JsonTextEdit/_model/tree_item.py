@@ -38,6 +38,17 @@ class TreeItem:
         """Return the number of children of the current item"""
         return len(self._children)
 
+    def display_value(self) -> str:
+        """Return the display value of the current item"""
+        if self._value_type is str:
+            return self._value
+        elif self._value_type is int:
+            return str(self._value)
+        elif self._value_type is float:
+            return f"{self._value:.2f}"
+        else:
+            return str(self._value) if self._value else ""
+
     def row(self) -> int:
         """Return the row where the current item occupies in the parent"""
         return self._parent._children.index(self) if self._parent else 0

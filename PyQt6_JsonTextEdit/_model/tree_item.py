@@ -15,7 +15,7 @@ class TreeItem:
         """Add item as a child"""
         self._children.append(item)
 
-    def appendRow(self, row: List[str, str]) -> None:
+    def appendRow(self, row: List[str]) -> None:
         """Append a row to the current item"""
         if len(row) == 2:
             key, value = row

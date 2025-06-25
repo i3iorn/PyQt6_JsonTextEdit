@@ -105,3 +105,4 @@ class QJsonModel(QAbstractItemModel):
         """ Set the horizontal header labels """
         self._headers = labels
         self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, len(labels) - 1)
+        

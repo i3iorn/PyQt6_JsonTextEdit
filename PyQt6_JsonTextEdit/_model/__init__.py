@@ -119,4 +119,7 @@ class QJsonModel(QAbstractItemModel):
             self._rootItem.appendChild(item)
 
         self.endResetModel()
-        
+
+    def invisibleRootItem(self) -> TreeItem:
+        """ Get the invisible root item of the model """
+        return self._rootItem

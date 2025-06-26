@@ -83,6 +83,10 @@ class TreeItem:
         """Set the python type of the item's value."""
         self._value_type = value
 
+    def setParent(self, parent: "TreeItem"):
+        """Set the parent of the current item"""
+        self._parent = parent
+
     @classmethod
     def parse(
         cls, value: list | dict, parent: "TreeItem" = None, sort=True

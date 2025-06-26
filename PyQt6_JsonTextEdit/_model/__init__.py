@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QObject, Qt
 from PyQt6_JsonTextEdit._model.tree_item import TreeItem
@@ -24,9 +24,16 @@ class QJsonModel(QAbstractItemModel):
 
         self.endInsertRows()
 
-    def appendRow(self, item: TreeItem, parent: QModelIndex = QModelIndex()):
+    def appendRow(self, item_candidate: List[str] | TreeItem, parent: QModelIndex = QModelIndex()):
         """ Append a single row to the model """
         self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent))
+        if isinstance(item_candidate, list):
+            item = TreeItem()
+            item.appendRow(item_candidate)
+        elif isinstance(item_candidate, TreeItem):
+            item = item_candidate
+        else:
+            raise TypeError("item_candidate must be a list or TreeItem")
 
         parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
         item.setParent(parent_item)

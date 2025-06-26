@@ -92,6 +92,28 @@ class QJsonModel(QAbstractItemModel):
                 return item.display_value()
         return None
 
+    def setData(self, index: QModelIndex, value: Any,
+                role: int = Qt.ItemDataRole.EditRole) -> bool:
+        if not index.isValid():
+            return False
+
+        item = index.internalPointer()
+
+        if index.column() == 0:
+            item.key = value
+        elif index.column() == 1:
+            item.set_value(value)
+        else:
+            return False
+
+        self.dataChanged.emit(index, index, [role])
+        return True
+
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+        return Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsEditable
+
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return self._headers[section]

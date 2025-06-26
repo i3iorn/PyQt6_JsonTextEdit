@@ -15,15 +15,22 @@ class QJsonModel(QAbstractItemModel):
 
     def append_rows(self, items: list[TreeItem], parent: QModelIndex = QModelIndex()):
         """ Append multiple rows to the model """
-        if not items:
-            return
-
         self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent) + len(items) - 1)
 
         parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
         for item in items:
             item.setParent(parent_item)
             parent_item.appendChild(item)
+
+        self.endInsertRows()
+
+    def append_row(self, item: TreeItem, parent: QModelIndex = QModelIndex()):
+        """ Append a single row to the model """
+        self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent))
+
+        parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
+        item.setParent(parent_item)
+        parent_item.appendChild(item)
 
         self.endInsertRows()
 

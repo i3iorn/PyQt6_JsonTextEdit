@@ -17,21 +17,26 @@ class QJsonTextEdit(QTextEdit):
     jsonChanged = pyqtSignal(str)
 
 
-    def __init__(self, parent=None, formatter: "QAbstractJsonFormatter" = None, highlighter: QSyntaxHighlighter = None ):
+    def __init__(
+            self,
+            parent=None,
+            formatter_class: Type["QAbstractJsonFormatter"] = None,
+            highlighter_class: Type[QSyntaxHighlighter] = None
+    ):
         super().__init__(parent)
+        self._highlighter = None
+        self._formatterClass = formatter_class or QJsonFormatter
+        self._highlighterClass = highlighter_class or QJsonHighlighter
         self._previous_state = None
         self._indentation = DEFAULT_INDENTATION
         self._textChangeDelay = DEFAULT_TEXT_CHANGE_DELAY
-
-        self._formatter = formatter or QJsonFormatter()
-        self._highlighter = highlighter or QJsonHighlighter()
         self._init_formatter()
         self._init_highlighter()
         self._connect_signals()
         self.jsonValidityChanged.emit(self.isValid)
 
     def _init_formatter(self):
-        pass
+        self._formatter = self._formatterClass()
 
     def _connect_signals(self):
         self._format_timer = QTimer()
@@ -42,14 +47,16 @@ class QJsonTextEdit(QTextEdit):
         QTimer.singleShot(0, self._check_format)
 
     def _init_highlighter(self):
+        self._highlighter = self._highlighterClass()
         self._highlighter.setDocument(self.document())
 
-    def formatter(self):
+    @property
+    def formatter(self) -> QJsonFormatter:
         return self._formatter
 
     @property
     def isValid(self):
-        return self._formatter.isValid(self.plainTextJson())
+        return self.formatter.isValid(self.plainTextJson())
 
     def plainTextJson(self):
         return self.toPlainText()
@@ -58,40 +65,44 @@ class QJsonTextEdit(QTextEdit):
         return self._indentation
 
     def _check_format(self):
-        if self.isValid != self._previous_state:
-            self.jsonValidityChanged.emit(self.isValid)
-            self._previous_state = self.isValid
+        new_state = self.isValid
+        if new_state != self._previous_state:
+            self.jsonValidityChanged.emit(new_state)
+            self._previous_state = new_state
 
-    def minifyJson(self):
+    def minifyJson(self, *args, **kwargs):
         if self.isValid:
             self.setText(self.minifiedJson())
 
     def minifiedJson(self):
         try:
             body = self.formatter.format(
-                self.plainTextJson, separators=(',', ':')
+                self.plainTextJson(), separators=(',', ':')
             ).splitlines()
             body = ''.join(line.strip() for line in body)
             return body
         except JsonFormattingException as e:
             self.jsonFormattingErrorOccurred.emit(str(e))
             return None
+        except Exception as e:
+            self.jsonFormattingErrorOccurred.emit(str(e))
+            raise e
 
-    def formatJson(self):
+    def formatJson(self, *args, **kwargs):
         if self.isValid:
             self.setText(self.formattedJson())
 
     def formattedJson(self) -> Optional[str]:
         try:
-            return self._formatter.format(self.plainTextJson)
+            return self.formatter.format(self.plainTextJson())
         except JsonFormattingException as e:
             self.jsonFormattingErrorOccurred.emit(str(e))
             return None
 
-    def setFormatter(self, formatter: Type[QAbstractJsonFormatter]):
+    def setFormatterClass(self, formatter: Type[QAbstractJsonFormatter]):
         if not issubclass(formatter, QAbstractJsonFormatter):
             raise JsonFormattingException(f"Formatter must be a subclass of QAbstractJsonFormatter")
-        self._formatter = formatter
+        self._formatterClass = formatter
         self._init_formatter()
 
     def setHighlighter(self, highlighter: Type[QSyntaxHighlighter]):
@@ -105,7 +116,7 @@ class QJsonTextEdit(QTextEdit):
             raise TypeError("Only dict or list are valid JSON roots")
 
         try:
-            string = self.formatter().format(json_object)
+            string = self.formatter.format(json_object)
             self.setText(string)
         except JsonFormattingException as e:
             self.jsonFormattingErrorOccurred.emit(str(e))
@@ -139,18 +150,31 @@ class QJsonTextEdit(QTextEdit):
             return
 
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            self._handle_newline_indent()
-            return
+            if self._handle_newline_indent():
+                return
 
         if key == Qt.Key.Key_Tab:
-            self._handle_tab()
-            return
+            if self._handle_tab():
+                return
+
+        if key == Qt.Key.Key_Space:
+            if self._handle_space():
+                return
+
+        if key == Qt.Key.Key_Backspace:
+            if self._handle_backspace():
+                return
 
         super().keyPressEvent(event)
 
     def _maybe_insert_pair(self, event: QKeyEvent) -> bool:
-        key = event.key()
+        """
+        Handles auto-insertion of matching pairs (braces, brackets, parentheses, quotes).
 
+        Returns:
+            bool: True if pair was inserted and event handled.
+        """
+        key = event.key()
         if key not in PAIRS:
             return False
 
@@ -158,50 +182,100 @@ class QJsonTextEdit(QTextEdit):
         opening, closing = chr(key), PAIRS[key]
         selection = cursor.selectedText()
 
-        # Handle special case: opening brace inserts a block with newline
         if opening == '{' and not selection:
-            leading = self._current_line_indent()
-            inner_indent = leading + self.indentation()
-
+            # Insert multi-line brace block with proper indentation
+            base_indent = self._current_line_indent()
+            indent_str = ' ' * self._indentation
             snippet = (
                 f"{opening}\n"
-                f"{' ' * inner_indent}\n"
-                f"{' ' * leading}{closing}"
+                f"{indent_str * (base_indent // self._indentation + 1)}\n"
+                f"{' ' * base_indent}{closing}"
             )
-
             cursor.insertText(snippet)
-            # Move cursor to inner indentation line
+
+            # Move cursor to empty inner line
             cursor.movePosition(QTextCursor.MoveOperation.Up)
             cursor.movePosition(QTextCursor.MoveOperation.EndOfLine)
             self.setTextCursor(cursor)
+            self._highlighter.rehighlight()
             return True
 
-        # General case: insert pair and place cursor inside
+        # Insert pair around selection or insert empty pair
         cursor.insertText(f"{opening}{selection}{closing}")
         if not selection:
             cursor.movePosition(QTextCursor.MoveOperation.Left)
             self.setTextCursor(cursor)
+
+        self._highlighter.rehighlight()
         return True
 
     def _handle_newline_indent(self):
-        # If the cursor is at the end of the line and the last non-blank character
-        # is a quote, insert a comma.
+        """
+        Inserts newline with smart indentation based on the preceding character context.
+        """
         cursor = self.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.EndOfLine, QTextCursor.MoveMode.KeepAnchor)
-        line_text = cursor.selectedText().rstrip()
-        if line_text and line_text[-1] == '"':
-            cursor.insertText(',')
+        block_text = cursor.block().text()
+        current_indent = self._current_line_indent()
 
-        # If the last character is open brace, bracket, parenthesis, or comma, insert
-        # a newline with indentation.
-        if line_text and line_text[-1] in '{[(,':
-            cursor.insertText('\n' + ' ' * self._current_line_indent())
+        cursor.movePosition(QTextCursor.MoveOperation.EndOfLine,
+                            QTextCursor.MoveMode.KeepAnchor)
+        line_text = cursor.selectedText().rstrip()
+        cursor.clearSelection()
+
+        trailing_char = line_text[-1] if line_text else ''
+
+        if trailing_char == '"':
+            cursor.insertText(',\n' + ' ' * current_indent)
+        elif trailing_char in '{[(':
+            cursor.insertText('\n' + ' ' * (current_indent + self._indentation))
         else:
-            # Otherwise, just insert a newline
-            cursor.insertText('\n')
+            cursor.insertText('\n' + ' ' * current_indent)
+
+        self.setTextCursor(cursor)
+
+        return True
 
     def _handle_tab(self):
-        self.textCursor().insertText(' ' * self.indentation())
+        """
+        Inserts spaces equal to indentation level instead of a literal tab character.
+        """
+        cursor = self.textCursor()
+        cursor.insertText(' ' * self._indentation)
+        self.setTextCursor(cursor)
+        return True
+
+    def _handle_space(self):
+        """
+        Handles intelligent space insertion — moves over closing brackets if space precedes them.
+        """
+        cursor = self.textCursor()
+
+        # Peek at next character after cursor
+        doc = self.document()
+        pos = cursor.position()
+        next_char = doc.characterAt(pos)
+
+        if next_char in PAIRS.values() or next_char == '"':
+            # Skip over closing symbol, insert space
+            cursor.movePosition(QTextCursor.MoveOperation.Right)
+            cursor.insertText(' ')
+            self.setTextCursor(cursor)
+            return True
+        return False
+
+    def _handle_backspace(self):
+        cursor = self.textCursor()
+
+        if not cursor.atStart():
+            # If there is only whitespace before the cursor, remove it
+            cursor.movePosition(QTextCursor.MoveOperation.StartOfLine, QTextCursor.MoveMode.KeepAnchor)
+            selected_text = cursor.selectedText()
+            if selected_text.isspace():
+                cursor.insertText("")
+                self.setTextCursor(cursor)
+                return True
+
+        return False
 
     def _current_line_indent(self) -> int:
         cursor = self.textCursor()

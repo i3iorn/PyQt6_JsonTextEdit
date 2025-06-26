@@ -98,10 +98,13 @@ class QJsonFormatter(QAbstractJsonFormatter):
                     value = json.loads(value)
                 return json.dumps(value, **kwargs)
         except JSONDecodeError as e:
-            # Get the start and end index of the relevant string from e.pos
-            raise JsonFormattingException("Failed to format input: ", value, e) from e
+            raise JsonFormattingException(
+                "Invalid JSON input",
+                value,
+                e
+            ) from e
         except Exception as e:
-            raise JsonFormatterException("Failed to format input") from e
+            raise JsonFormatterException("Failed to format input: "+str(e)) from e
         return None
 
     def jsonEncoderClass(self):

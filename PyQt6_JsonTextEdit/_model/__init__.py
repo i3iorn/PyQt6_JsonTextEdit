@@ -13,7 +13,7 @@ class QJsonModel(QAbstractItemModel):
         self._rootItem = TreeItem()
         self._headers = ("key", "value")
 
-    def append_rows(self, items: list[TreeItem], parent: QModelIndex = QModelIndex()):
+    def appendRows(self, items: list[TreeItem], parent: QModelIndex = QModelIndex()):
         """ Append multiple rows to the model """
         self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent) + len(items) - 1)
 
@@ -24,7 +24,7 @@ class QJsonModel(QAbstractItemModel):
 
         self.endInsertRows()
 
-    def append_row(self, item: TreeItem, parent: QModelIndex = QModelIndex()):
+    def appendRow(self, item: TreeItem, parent: QModelIndex = QModelIndex()):
         """ Append a single row to the model """
         self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent))
 

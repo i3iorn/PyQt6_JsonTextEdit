@@ -4,52 +4,61 @@ from typing import Any, Optional, List
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QObject, Qt
 from PyQt6_JsonTextEdit._model.tree_item import TreeItem
 
-
 logger = logging.getLogger(__name__)
 
 
 class QJsonModel(QAbstractItemModel):
-    """ An editable model of Json data """
+    """An editable model of JSON data using TreeItem as backing nodes."""
 
     def __init__(self, parent: QObject = None):
         super().__init__(parent)
-
         self._rootItem = TreeItem()
         self._headers = ("key", "value")
 
-    def appendRows(self, items: list[TreeItem], parent: QModelIndex = QModelIndex()):
-        """ Append multiple rows to the model """
-        self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent) + len(items) - 1)
-
+    def appendRows(self, items: list[TreeItem], parent: QModelIndex = QModelIndex()) -> None:
+        """Append multiple TreeItems as children of the given parent index."""
         parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
-        for item in items:
+        position = parent_item.childCount()
+
+        self.beginInsertRows(parent, position, position + len(items) - 1)
+        for i, item in enumerate(items):
             item.setParent(parent_item)
             parent_item.appendChild(item)
 
+            for col, value in enumerate((item.key, item.value)):
+                index = self.index(position + i, col, parent)
+                self.setData(index, value, Qt.ItemDataRole.EditRole)
         self.endInsertRows()
 
-    def appendRow(self, item_candidate: List[str] | TreeItem, parent: QModelIndex = QModelIndex()):
-        """ Append a single row to the model """
-        self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent))
+    def appendRow(self, item_candidate: List[str] | TreeItem, parent: QModelIndex = QModelIndex()) -> None:
+        """Append a single item (TreeItem or [key, value] list) under the given parent index."""
+        parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
+        position = parent_item.childCount()
+
+        self.beginInsertRows(parent, position, position)
+
         if isinstance(item_candidate, list):
+            if len(item_candidate) != 2:
+                raise ValueError("Row must be [key, value]")
             item = TreeItem()
-            item.appendRow(item_candidate)
+            item.setParent(parent_item)
+            parent_item.appendChild(item)
         elif isinstance(item_candidate, TreeItem):
             item = item_candidate
+            item.setParent(parent_item)
+            parent_item.appendChild(item)
         else:
-            raise TypeError("item_candidate must be a list or TreeItem")
-
-        parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
-        item.setParent(parent_item)
-        parent_item.appendChild(item)
+            raise TypeError("item_candidate must be list[str] or TreeItem")
 
         self.endInsertRows()
 
+        # Trigger display update via setData()
+        for col, value in enumerate((item.key, item.value)):
+            index = self.index(position, col, parent)
+            self.setData(index, value, Qt.ItemDataRole.EditRole)
+
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
-        if parent.isValid():
-            parent_item = parent.internalPointer()
-        else:
-            parent_item = self._rootItem
+        parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
         return parent_item.childCount()
 
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -58,123 +67,82 @@ class QJsonModel(QAbstractItemModel):
     def index(self, row: int, column: int, parent: QModelIndex = QModelIndex()) -> QModelIndex:
         if not self.hasIndex(row, column, parent):
             return QModelIndex()
-
         parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
         child_item = parent_item.child(row)
-
-        if child_item:
-            return self.createIndex(row, column, child_item)
-        else:
-            return QModelIndex()
+        return self.createIndex(row, column, child_item) if child_item else QModelIndex()
 
     def parent(self, index: QModelIndex) -> QModelIndex:
         if not index.isValid():
             return QModelIndex()
-
         child_item = index.internalPointer()
         parent_item = child_item.parent()
-
-        if parent_item == self._rootItem or parent_item is None:
+        if parent_item is None or parent_item == self._rootItem:
             return QModelIndex()
-
         return self.createIndex(parent_item.row(), 0, parent_item)
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         if not index.isValid():
             return None
-
         item = index.internalPointer()
-
         if role == Qt.ItemDataRole.DisplayRole:
-            if index.column() == 0:
-                return item.key
-            elif index.column() == 1:
-                return item.display_value()
+            return item.key if index.column() == 0 else item.display_value()
         return None
 
-    def setData(self, index: QModelIndex, value: Any,
-                role: int = Qt.ItemDataRole.EditRole) -> bool:
+    def setData(self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
         if not index.isValid():
             return False
-
         item = index.internalPointer()
-
         if index.column() == 0:
             item.key = value
         elif index.column() == 1:
-            item.set_value(value)
+            item.value = value
         else:
             return False
-
         self.dataChanged.emit(index, index, [role])
         return True
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
-        return Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsEditable
+        return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEditable
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return self._headers[section]
         return None
 
-    def load_json(self, data: Any) -> bool:
-        self.beginResetModel()
-        logger.debug("Loading JSON data into model. Type: %s", type(data))
-        self._rootItem.parse(value=data, parent=None)
-        self.endResetModel()
-        return True
-
-    def to_json(self, item=None):
-
-        if item is None:
-            item = self._rootItem
-
-        nchild = item.childCount()
-
-        if item.value_type is dict:
-            document = {}
-            for i in range(nchild):
-                ch = item.child(i)
-                document[ch.key] = self.to_json(ch)
-            return document
-
-        elif item.value_type == list:
-            document = []
-            for i in range(nchild):
-                ch = item.child(i)
-                document.append(self.to_json(ch))
-            return document
-
-        else:
-            return item.value
-
-    def horizontalHeaderItem(self, index: int) -> Optional[str]:
-        """ Get the horizontal header item """
-        if 0 <= index < len(self._headers):
-            return self._headers[index]
-        return None
-
-    def setHorizontalHeaderLabels(self, labels: list[str]):
-        """ Set the horizontal header labels """
+    def setHorizontalHeaderLabels(self, labels: list[str]) -> None:
         self._headers = labels
         self.headerDataChanged.emit(Qt.Orientation.Horizontal, 0, len(labels) - 1)
 
-    def setStringList(self, string_list: list[str]):
-        """ Set the model data from a list of strings """
+    def load_json(self, data: Any) -> bool:
+        """Reset the entire model to represent the new JSON data."""
         self.beginResetModel()
-        # Clear the current root item by reinitializing it
-        self._rootItem = TreeItem()
+        logger.debug("Loading JSON data into model. Type: %s", type(data))
+        self._rootItem = TreeItem.parse(value=data)
+        self.endResetModel()
+        return True
 
-        # Populate the root item with the string list
+    def setStringList(self, string_list: list[str]) -> None:
+        """Replace model with one string per item."""
+        self.beginResetModel()
+        self._rootItem = TreeItem()
         for string in string_list:
             item = TreeItem(parent=self._rootItem)
             item.value = string
             self._rootItem.appendChild(item)
-
         self.endResetModel()
 
+    def to_json(self, item: Optional[TreeItem] = None) -> Any:
+        """Convert the tree back into native Python JSON types."""
+        item = item or self._rootItem
+        if item.value_type is dict:
+            return {ch.key: self.to_json(ch) for ch in item._children}
+        elif item.value_type is list:
+            return [self.to_json(ch) for ch in item._children]
+        else:
+            return item.value
+
     def invisibleRootItem(self) -> TreeItem:
-        """ Get the invisible root item of the model """
+        """Expose the invisible root item."""
         return self._rootItem

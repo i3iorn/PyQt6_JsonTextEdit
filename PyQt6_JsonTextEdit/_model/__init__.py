@@ -13,6 +13,20 @@ class QJsonModel(QAbstractItemModel):
         self._rootItem = TreeItem()
         self._headers = ("key", "value")
 
+    def append_rows(self, items: list[TreeItem], parent: QModelIndex = QModelIndex()):
+        """ Append multiple rows to the model """
+        if not items:
+            return
+
+        self.beginInsertRows(parent, self.rowCount(parent), self.rowCount(parent) + len(items) - 1)
+
+        parent_item = parent.internalPointer() if parent.isValid() else self._rootItem
+        for item in items:
+            item.setParent(parent_item)
+            parent_item.appendChild(item)
+
+        self.endInsertRows()
+
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         if parent.isValid():
             parent_item = parent.internalPointer()

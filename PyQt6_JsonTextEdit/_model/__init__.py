@@ -1,7 +1,11 @@
+import logging
 from typing import Any, Optional, List
 
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QObject, Qt
 from PyQt6_JsonTextEdit._model.tree_item import TreeItem
+
+
+logger = logging.getLogger(__name__)
 
 
 class QJsonModel(QAbstractItemModel):
@@ -95,6 +99,7 @@ class QJsonModel(QAbstractItemModel):
 
     def load_json(self, data: Any) -> bool:
         self.beginResetModel()
+        logger.debug("Loading JSON data into model. Type: %s", type(data))
         self._rootItem.parse(value=data, parent=None)
         self.endResetModel()
         return True

@@ -1,4 +1,8 @@
+import logging
 from typing import List
+
+
+logger = logging.getLogger(__name__)
 
 
 class TreeItem:
@@ -103,6 +107,9 @@ class TreeItem:
         Returns:
             TreeItem: TreeItem
         """
+        if parent is None:
+            logger.debug(f"Parsing root item from {type(value)}")
+
         rootItem = TreeItem(parent)
         rootItem.key = "root"
 
